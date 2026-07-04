@@ -39,6 +39,15 @@ const ICONS = {
   philosophy: Sparkles,
 };
 
+const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:3333' : '';
+
+interface OllamaStatus {
+  ollamaInstalled: boolean;
+  ollamaRunning: boolean;
+  modelDownloaded: boolean;
+  modelName: string;
+}
+
 export default function App() {
   const [generatedText, setGeneratedText] = useState('');
   const [category, setCategory] = useState<Category>('genealogy');
@@ -46,7 +55,90 @@ export default function App() {
   const [generationStatus, setGenerationStatus] = useState('Textos locais prontos.');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Ollama status integration
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
+  const [isCheckingOllama, setIsCheckingOllama] = useState(true);
+  const [isPullingModel, setIsPullingModel] = useState(false);
+  const [pullProgress, setPullProgress] = useState({ percent: 0, status: '' });
+  const [showSetup, setShowSetup] = useState(false);
+
   const selectedList = useMemo(() => DATABASE[category], [category]);
+
+  const checkOllama = async () => {
+    setIsCheckingOllama(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/ollama/status`);
+      if (res.ok) {
+        const data = await res.json();
+        setOllamaStatus(data);
+      } else {
+        throw new Error('Falha ao checar status');
+      }
+    } catch (err) {
+      console.warn('Erro ao conectar com API do Ollama, usando fallback:', err);
+      setOllamaStatus({
+        ollamaInstalled: false,
+        ollamaRunning: false,
+        modelDownloaded: false,
+        modelName: 'qwen2.5:3b'
+      });
+    } finally {
+      setIsCheckingOllama(false);
+    }
+  };
+
+  const pullModel = async () => {
+    setIsPullingModel(true);
+    setPullProgress({ percent: 0, status: 'Iniciando download...' });
+    try {
+      const res = await fetch(`${API_BASE}/api/ollama/pull`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error('Falha ao iniciar o download.');
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Streaming não suportado pelo navegador.');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.status) {
+              let percent = 0;
+              if (data.completed && data.total) {
+                percent = Math.round((data.completed / data.total) * 100);
+              }
+              setPullProgress({
+                percent,
+                status: data.status + (percent > 0 ? ` (${percent}%)` : '')
+              });
+            }
+          } catch (e) {
+            // Ignora linhas parciais ou de controle
+          }
+        }
+      }
+
+      setPullProgress({ percent: 100, status: 'Download concluído!' });
+      await checkOllama();
+    } catch (err) {
+      console.error('Erro no download:', err);
+      setPullProgress({ percent: 0, status: 'Erro ao baixar. Tente novamente.' });
+    } finally {
+      setIsPullingModel(false);
+    }
+  };
 
   const generateLocalQuote = () => {
     const randomIndex = Math.floor(Math.random() * selectedList.length);
@@ -56,10 +148,10 @@ export default function App() {
 
   const generateQuote = async () => {
     setIsGenerating(true);
-    setGenerationStatus('Consultando o oraculo local...');
+    setGenerationStatus('Consultando o oráculo local...');
 
     try {
-      const response = await fetch('/api/lero-lero', {
+      const response = await fetch(`${API_BASE}/api/lero-lero`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ category }),
@@ -76,7 +168,8 @@ export default function App() {
       setGenerationStatus(`Gerado com ${payload.model ?? 'modelo local'}.`);
     } catch {
       generateLocalQuote();
-      setGenerationStatus('Ollama indisponivel. Usei um pergaminho local.');
+      checkOllama();
+      setGenerationStatus('Ollama indisponível. Usei um pergaminho local.');
     } finally {
       setIsGenerating(false);
     }
@@ -96,8 +189,19 @@ export default function App() {
   };
 
   useEffect(() => {
+    checkOllama();
+  }, []);
+
+  useEffect(() => {
     generateLocalQuote();
   }, [category]);
+
+  const ollamaReady = !!(ollamaStatus?.ollamaInstalled && ollamaStatus?.ollamaRunning && ollamaStatus?.modelDownloaded);
+  const statusText = isCheckingOllama 
+    ? 'Verificando IA...' 
+    : ollamaReady 
+      ? 'IA Local Pronta (Ollama)' 
+      : 'IA Indisponível (Manuscritos Offline)';
 
   return (
     <main className="app-shell">
@@ -107,8 +211,19 @@ export default function App() {
             <TreePine size={64} strokeWidth={1.7} />
           </div>
           <h1 id="app-title">Lero Lero de Valfenda</h1>
-          <p>Para vencer o oponente pelo cansaco e pela erudicao excessiva.</p>
+          <p>Para vencer o oponente pelo cansaço e pela erudição excessiva.</p>
         </header>
+
+        {/* Ollama Status Bar */}
+        <div className="status-bar">
+          <div className="status-indicator">
+            <span className={`status-dot ${ollamaReady ? 'ready' : 'warning'}`}></span>
+            <span>{statusText}</span>
+          </div>
+          <button type="button" className="setup-button" onClick={() => setShowSetup(true)}>
+            {ollamaReady ? 'Configurações' : 'Configurar IA'}
+          </button>
+        </div>
 
         <nav className="category-grid" aria-label="Categorias">
           {(Object.keys(CATEGORY_LABELS) as Category[]).map((item) => {
@@ -149,10 +264,93 @@ export default function App() {
 
         <footer className="lore-footer">
           <div aria-hidden="true" />
-          <p>Nao responda ao tolo com a mesma loucura, responda com mil anos de historia que ele tera preguica de ler.</p>
+          <p>Não responda ao tolo com a mesma loucura, responda com mil anos de história que ele terá preguiça de ler.</p>
           <span>Arquivos Reais de Minas Tirith</span>
         </footer>
       </section>
+
+      {/* Ollama Setup Modal */}
+      {showSetup && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Santuário de IA de Valfenda</h2>
+            <p className="modal-subtitle">Configure o modelo local de inteligência artificial para gerar reprimendas inéditas.</p>
+            
+            <div className="status-list">
+              <div className="status-item">
+                <span>Ollama Instalado:</span>
+                <span className={`badge ${ollamaStatus?.ollamaInstalled ? 'success' : 'danger'}`}>
+                  {ollamaStatus?.ollamaInstalled ? 'Sim' : 'Não'}
+                </span>
+              </div>
+              
+              <div className="status-item">
+                <span>Ollama Iniciado:</span>
+                <span className={`badge ${ollamaStatus?.ollamaRunning ? 'success' : 'danger'}`}>
+                  {ollamaStatus?.ollamaRunning ? 'Sim' : 'Não'}
+                </span>
+              </div>
+
+              <div className="status-item">
+                <span>Modelo de IA ({ollamaStatus?.modelName || 'qwen2.5:3b'}):</span>
+                <span className={`badge ${ollamaStatus?.modelDownloaded ? 'success' : 'danger'}`}>
+                  {ollamaStatus?.modelDownloaded ? 'Disponível' : 'Indisponível'}
+                </span>
+              </div>
+            </div>
+
+            <div className="setup-actions">
+              {!ollamaStatus?.ollamaInstalled && (
+                <div className="setup-instruction">
+                  <p>Ollama não foi detectado no sistema. Instale abrindo o terminal e rodando:</p>
+                  <code>curl -fsSL https://ollama.com/install.sh | sh</code>
+                  <p className="help-text">Após a instalação, clique em Recarregar Status.</p>
+                </div>
+              )}
+
+              {ollamaStatus?.ollamaInstalled && !ollamaStatus?.ollamaRunning && (
+                <div className="setup-instruction">
+                  <p>O serviço do Ollama está instalado mas não está rodando.</p>
+                  <p className="help-text">Tente iniciá-lo executando <code>ollama serve</code> no terminal ou abrindo o aplicativo Ollama.</p>
+                </div>
+              )}
+
+              {ollamaStatus?.ollamaRunning && !ollamaStatus?.modelDownloaded && (
+                <div className="setup-download">
+                  <p>O modelo de IA <strong>{ollamaStatus?.modelName}</strong> precisa ser baixado (~1.9 GB).</p>
+                  {isPullingModel ? (
+                    <div className="progress-container">
+                      <div className="progress-bar-bg">
+                        <div className="progress-bar-fill" style={{ width: `${pullProgress.percent}%` }}></div>
+                      </div>
+                      <span className="progress-label">{pullProgress.status}</span>
+                    </div>
+                  ) : (
+                    <button type="button" className="download-button" onClick={pullModel}>
+                      Baixar Modelo do Ollama
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {ollamaReady && (
+                <div style={{ textAlign: 'center', color: '#10b981', fontWeight: 'bold' }}>
+                  <p>Tudo pronto! O oráculo de Valfenda está em plena harmonia com a IA local.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer-buttons">
+              <button type="button" className="btn-close" onClick={() => setShowSetup(false)} disabled={isPullingModel}>
+                Fechar
+              </button>
+              <button type="button" className="btn-retry" onClick={checkOllama} disabled={isCheckingOllama || isPullingModel}>
+                {isCheckingOllama ? 'Checando...' : 'Recarregar Status'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

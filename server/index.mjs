@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { execSync, spawn } from 'node:child_process';
 
 function loadLocalEnv() {
   try {
@@ -43,12 +44,69 @@ const CATEGORIES = {
   philosophy: 'filosofia, destino, tempo, humildade, poder, esperanca e julgamento precipitado',
 };
 
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'content-type',
+};
+
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
+    ...CORS_HEADERS
   });
   response.end(JSON.stringify(payload));
+}
+
+function checkOllamaInstalled() {
+  try {
+    execSync('ollama --version', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function checkOllamaRunning() {
+  try {
+    const res = await fetch(`${OLLAMA_HOST}/api/tags`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function checkModelDownloaded() {
+  try {
+    const res = await fetch(`${OLLAMA_HOST}/api/tags`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.models?.some(m => m.name.includes(OLLAMA_MODEL) || m.model?.includes(OLLAMA_MODEL)) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+let ollamaStartedAutomatically = false;
+async function tryStartOllama() {
+  if (checkOllamaInstalled() && !ollamaStartedAutomatically) {
+    console.log('Detectado que o Ollama está instalado mas não está rodando. Tentando iniciar...');
+    try {
+      const p = spawn('ollama', ['serve'], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      p.unref();
+      ollamaStartedAutomatically = true;
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      return await checkOllamaRunning();
+    } catch (err) {
+      console.error('Falha ao tentar iniciar o Ollama automaticamente:', err);
+      return false;
+    }
+  }
+  return false;
 }
 
 function buildPrompt(category) {
@@ -111,12 +169,80 @@ async function generateLeroLero(category) {
 }
 
 const server = createServer(async (request, response) => {
+  // Handle CORS OPTIONS preflight
+  if (request.method === 'OPTIONS') {
+    response.writeHead(204, CORS_HEADERS);
+    response.end();
+    return;
+  }
+
   if (request.method === 'GET' && request.url === '/api/health') {
     sendJson(response, 200, {
       ok: true,
       model: OLLAMA_MODEL,
       ollamaHost: OLLAMA_HOST,
     });
+    return;
+  }
+
+  if (request.method === 'GET' && request.url === '/api/ollama/status') {
+    try {
+      const installed = checkOllamaInstalled();
+      let running = await checkOllamaRunning();
+      
+      if (installed && !running) {
+        running = await tryStartOllama();
+      }
+
+      let modelDownloaded = false;
+      if (running) {
+        modelDownloaded = await checkModelDownloaded();
+      }
+
+      sendJson(response, 200, {
+        ollamaInstalled: installed,
+        ollamaRunning: running,
+        modelDownloaded,
+        modelName: OLLAMA_MODEL,
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        error: error instanceof Error ? error.message : 'Erro ao verificar status do Ollama.',
+      });
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && request.url === '/api/ollama/pull') {
+    try {
+      console.log(`Iniciando pull do modelo: ${OLLAMA_MODEL}`);
+      const ollamaResponse = await fetch(`${OLLAMA_HOST}/api/pull`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: OLLAMA_MODEL, stream: true }),
+      });
+
+      if (!ollamaResponse.ok) {
+        const text = await ollamaResponse.text();
+        throw new Error(`Erro do Ollama: ${text}`);
+      }
+
+      response.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        'connection': 'keep-alive',
+        'access-control-allow-origin': '*',
+      });
+
+      for await (const chunk of ollamaResponse.body) {
+        response.write(chunk);
+      }
+      response.end();
+    } catch (error) {
+      sendJson(response, 502, {
+        error: error instanceof Error ? error.message : 'Falha ao baixar modelo do Ollama.',
+      });
+    }
     return;
   }
 

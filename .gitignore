@@ -11,3 +11,6 @@ AGENTS.md
 Thumbs.db
 .idea/
 .vscode/
+
+# Electron builds
+dist-electron/
