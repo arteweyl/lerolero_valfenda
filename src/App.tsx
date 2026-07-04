@@ -43,13 +43,43 @@ export default function App() {
   const [generatedText, setGeneratedText] = useState('');
   const [category, setCategory] = useState<Category>('genealogy');
   const [copyStatus, setCopyStatus] = useState('Copiar');
+  const [generationStatus, setGenerationStatus] = useState('Textos locais prontos.');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const selectedList = useMemo(() => DATABASE[category], [category]);
 
-  const generateQuote = () => {
+  const generateLocalQuote = () => {
     const randomIndex = Math.floor(Math.random() * selectedList.length);
     setGeneratedText(selectedList[randomIndex]);
     setCopyStatus('Copiar');
+  };
+
+  const generateQuote = async () => {
+    setIsGenerating(true);
+    setGenerationStatus('Consultando o oraculo local...');
+
+    try {
+      const response = await fetch('/api/lero-lero', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ category }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok || typeof payload.text !== 'string') {
+        throw new Error(typeof payload.error === 'string' ? payload.error : 'Falha ao gerar texto.');
+      }
+
+      setGeneratedText(payload.text);
+      setCopyStatus('Copiar');
+      setGenerationStatus(`Gerado com ${payload.model ?? 'modelo local'}.`);
+    } catch {
+      generateLocalQuote();
+      setGenerationStatus('Ollama indisponivel. Usei um pergaminho local.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const copyToClipboard = async () => {
@@ -66,7 +96,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    generateQuote();
+    generateLocalQuote();
   }, [category]);
 
   return (
@@ -103,10 +133,12 @@ export default function App() {
           <Quote className="quote-mark quote-mark-end" size={48} aria-hidden="true" />
         </article>
 
+        <p className="generation-status" aria-live="polite">{generationStatus}</p>
+
         <div className="actions">
-          <button type="button" onClick={generateQuote} className="primary-action">
-            <RefreshCw size={22} />
-            <span>Proximo Pergaminho</span>
+          <button type="button" onClick={generateQuote} className="primary-action" disabled={isGenerating}>
+            <RefreshCw size={22} className={isGenerating ? 'spin' : ''} />
+            <span>{isGenerating ? 'Invocando IA' : 'Gerar com IA'}</span>
           </button>
 
           <button type="button" onClick={copyToClipboard} className="secondary-action">

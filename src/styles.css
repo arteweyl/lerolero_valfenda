@@ -172,6 +172,17 @@ button {
   gap: 16px;
 }
 
+.generation-status {
+  min-height: 20px;
+  margin: -16px 0 0;
+  color: #a8a29e;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+}
+
 .primary-action,
 .secondary-action {
   min-height: 64px;
@@ -195,6 +206,13 @@ button {
   transform: translateY(-1px);
 }
 
+.primary-action:disabled,
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
 .primary-action {
   color: #0c0a09;
   background: #e7e5e4;
@@ -213,6 +231,10 @@ button {
 
 .secondary-action:hover {
   background: #44403c;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
 }
 
 .lore-footer {
@@ -243,6 +265,12 @@ button {
   font-weight: 800;
   letter-spacing: 0.32em;
   text-transform: uppercase;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 640px) {
