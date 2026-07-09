@@ -160,10 +160,11 @@ Para rodar o ambiente de desenvolvimento clássico:
 
 ## 🔌 Servidor MCP (Model Context Protocol)
 
-O projeto inclui um servidor MCP localizado em [mcp-server/index.mjs](file:///mnt/c/Users/lcwey/projetos_pessoais/lero-lero-valfenda/mcp-server/index.mjs). Ele permite que agentes de IA externos (como Cursor, Claude Desktop ou extensões do VSCode) se conectem e usem ferramentas para:
-- Executar prompts no seu Ollama local.
-- Executar prompts no Gemini Cloud.
-- Rotear prompts de forma inteligente com base na complexidade da tarefa.
-- Verificar o status de conexão dos modelos de IA.
+O projeto inclui um servidor MCP localizado em [mcp-server/index.mjs](file:///mnt/c/Users/lcwey/projetos_pessoais/lero-lero-valfenda/mcp-server/index.mjs). Ele foi projetado para que **você** (o usuário) possa integrar seus assistentes de IA pessoais (como Cursor, Claude Desktop ou extensões de VSCode) diretamente com o contexto da aplicação (seja ela rodando localmente ou de forma containerizada).
+
+Ao conectar o seu assistente de IA a este servidor MCP, você poderá delegar e escolher qual LLM utilizar na geração das reprimendas:
+- **Ollama (Local/Containerizado)**: Executa a geração localmente na sua máquina (ex: na GPU GTX 1650).
+- **Gemini Cloud (Nuvem)**: Executa na nuvem para maior precisão e tarefas complexas.
+- **Roteamento Inteligente**: O servidor MCP escolhe automaticamente a melhor LLM com base na complexidade do prompt.
 
 Para ver instruções detalhadas de como configurar o servidor MCP no seu assistente e recomendações de hardware para rodar local na GPU GTX 1650, consulte o [README do mcp-server](file:///mnt/c/Users/lcwey/projetos_pessoais/lero-lero-valfenda/mcp-server/README.md).
