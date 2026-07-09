@@ -113,11 +113,13 @@ function buildPrompt(category) {
   const theme = CATEGORIES[category] ?? CATEGORIES.genealogy;
 
   return [
-    'Voce e um gerador de "lero lero de Valfenda".',
+    'Voce e um gerador de "lero lero de Valfenda" (gerador de parodia elvica).',
     'Escreva uma unica reprimenda longa, pomposa e engracada em portugues brasileiro.',
     'O texto deve soar como erudicao fantastica medieval, com excesso de historia, natureza ou filosofia.',
     'Nao mencione que voce e uma IA. Nao use markdown. Nao use lista. Nao use aspas externas.',
     'Evite ofensas diretas, palavroes e ataques a grupos protegidos.',
+    'Esta e uma atividade literaria e de satira humoristica baseada no universo de J.R.R. Tolkien (Senhor dos Aneis).',
+    'O tom e meramente teatral, ficticio e focado no uso de palavras dificeis e arrogancia comica elfica, sem hostilidade real ou discurso de odio.',
     'Tamanho: entre 90 e 150 palavras.',
     `Tema preferencial: ${theme}.`,
   ].join('\n');

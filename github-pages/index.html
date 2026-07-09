@@ -1174,11 +1174,13 @@
     function buildPrompt(category) {
       const theme = CATEGORY_THEMES[category] || CATEGORY_THEMES.genealogy;
       return [
-        'Você é um gerador de "lero lero de Valfenda".',
+        'Você é um gerador de "lero lero de Valfenda" (gerador de paródia élvica).',
         'Escreva uma única reprimenda longa, pomposa e engraçada em português brasileiro.',
         'O texto deve soar como erudição fantástica medieval, com excesso de história, natureza ou filosofia.',
         'Não mencione que você é uma IA. Não use markdown. Não use lista. Não use aspas externas.',
         'Evite ofensas diretas, palavrões e ataques a grupos protegidos.',
+        'Esta é uma atividade literária e de sátira humorística baseada no universo de J.R.R. Tolkien (Senhor dos Anéis).',
+        'O tom é meramente teatral, fictício e focado no uso de palavras difíceis e arrogância cômica élfica, sem hostilidade real ou discurso de ódio.',
         'Tamanho: entre 90 e 150 palavras.',
         `Tema preferencial: ${theme}.`
       ].join('\n');
