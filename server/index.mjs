@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, statSync, existsSync } from 'node:fs';
+import { join, extname } from 'node:path';
 import { execSync, spawn } from 'node:child_process';
 
 function loadLocalEnv() {
@@ -265,10 +265,60 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.url.startsWith('/api')) {
+    sendJson(response, 404, { error: 'Rota nao encontrada.' });
+    return;
+  }
+
+  // Serve static files from "dist"
+  try {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    let safePath = url.pathname.replace(/^(\.\.[\/\\])+/, ''); // basic path traversal prevention
+    if (safePath === '/') safePath = '/index.html';
+
+    const distPath = join(process.cwd(), 'dist');
+    const filePath = join(distPath, safePath);
+
+    if (filePath.startsWith(distPath) && existsSync(filePath) && statSync(filePath).isFile()) {
+      const ext = extname(filePath).toLowerCase();
+      const mimeTypes = {
+        '.html': 'text/html; charset=utf-8',
+        '.css': 'text/css; charset=utf-8',
+        '.js': 'application/javascript; charset=utf-8',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon',
+        '.json': 'application/json',
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      response.writeHead(200, {
+        'content-type': contentType,
+        ...CORS_HEADERS
+      });
+      response.end(readFileSync(filePath));
+      return;
+    }
+  } catch (err) {
+    console.error('Erro ao servir arquivo estatico:', err);
+  }
+
+  // Fallback to index.html for SPA routing
+  try {
+    const indexPath = join(process.cwd(), 'dist', 'index.html');
+    if (existsSync(indexPath)) {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...CORS_HEADERS });
+      response.end(readFileSync(indexPath));
+      return;
+    }
+  } catch (err) {
+    console.error('Erro ao servir index.html de fallback:', err);
+  }
+
   sendJson(response, 404, { error: 'Rota nao encontrada.' });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`API local em http://127.0.0.1:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`API local em http://0.0.0.0:${PORT}`);
   console.log(`Ollama em ${OLLAMA_HOST} usando modelo ${OLLAMA_MODEL}`);
 });
