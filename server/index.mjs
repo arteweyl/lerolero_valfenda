@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { readFileSync, statSync, existsSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { join, extname, relative, isAbsolute } from 'node:path';
 import { execSync, spawn } from 'node:child_process';
 
 function loadLocalEnv() {
@@ -274,13 +274,15 @@ const server = createServer(async (request, response) => {
   // Serve static files from "dist"
   try {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
-    let safePath = url.pathname.replace(/^(\.\.[\/\\])+/, ''); // basic path traversal prevention
-    if (safePath === '/') safePath = '/index.html';
+    const safePath = url.pathname === '/' ? '/index.html' : url.pathname;
 
     const distPath = join(process.cwd(), 'dist');
     const filePath = join(distPath, safePath);
 
-    if (filePath.startsWith(distPath) && existsSync(filePath) && statSync(filePath).isFile()) {
+    const relativePath = relative(distPath, filePath);
+    const isSafe = relativePath && !relativePath.startsWith('..') && !isAbsolute(relativePath);
+
+    if (isSafe && existsSync(filePath) && statSync(filePath).isFile()) {
       const ext = extname(filePath).toLowerCase();
       const mimeTypes = {
         '.html': 'text/html; charset=utf-8',
