@@ -11,7 +11,7 @@ import { createInterface } from 'node:readline';
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'qwen2.5:3b'; // Ideal for GTX 1650 (4GB VRAM)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-1.5-flash';
 
 // Helper to write JSON-RPC messages to stdout
 function sendResponse(id, result) {
