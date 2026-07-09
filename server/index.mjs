@@ -119,6 +119,7 @@ function buildPrompt(category) {
     'Nao mencione que voce e uma IA. Nao use markdown. Nao use lista. Nao use aspas externas.',
     'O conteudo deve ser amigavel e focado exclusivamente em elementos ficcionais de fantasia (mitologia elfica), sem qualquer agressividade ou hostilidade.',
     'Esta e uma atividade literaria criativa e de parodia humoristica baseada no universo de J.R.R. Tolkien (Senhor dos Aneis).',
+    'Gere um texto 100% inedito. Nao copie nem cite frases literais dos livros ou filmes de Tolkien. Crie suas proprias metaforas, nomes e descricoes originais inspiradas no estilo.',
     'Tamanho: entre 90 e 150 palavras.',
     `Tema preferencial: ${theme}.`,
   ].join('\n');

@@ -1180,6 +1180,7 @@
         'Não mencione que você é uma IA. Não use markdown. Não use lista. Não use aspas externas.',
         'O conteúdo deve ser amigável e focado exclusivamente em elementos ficcionais de fantasia (mitologia élfica), sem qualquer agressividade ou hostilidade.',
         'Esta é uma atividade literária criativa e de paródia humorística baseada no universo de J.R.R. Tolkien (Senhor dos Anéis).',
+        'Gere um texto 100% inédito. Não copie nem cite frases literais dos livros ou filmes de Tolkien. Crie suas próprias metáforas, nomes e descrições originais inspiradas no estilo.',
         'Tamanho: entre 90 e 150 palavras.',
         `Tema preferencial: ${theme}.`
       ].join('\n');
@@ -1571,7 +1572,13 @@
           }
 
           const data = await res.json();
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+          console.log('Gemini Full Response:', data);
+          const candidate = data.candidates?.[0];
+          console.log('Gemini Candidate 0:', candidate);
+          console.log('Gemini Finish Reason:', candidate?.finishReason);
+
+          const text = candidate?.content?.parts?.[0]?.text?.trim() || '';
+          console.log('Gemini Extracted Text:', text);
 
           if (!text) throw new Error('Resposta vazia');
 
