@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-electron
+electron
+.git
+.github
+*.log
+tsconfig.tsbuildinfo
+.env
