@@ -452,7 +452,8 @@
       letter-spacing: 0.05em;
     }
 
-    .form-group input {
+    .form-group input,
+    .form-group select {
       background: #0a0807;
       border: 1px solid var(--border-color);
       border-radius: 8px;
@@ -463,7 +464,8 @@
       transition: var(--transition-fast);
     }
 
-    .form-group input:focus {
+    .form-group input:focus,
+    .form-group select:focus {
       outline: none;
       border-color: var(--accent-gold);
       box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
@@ -753,23 +755,69 @@
       <p class="modal-subtitle">Configure o Ollama local para gerar reprimendas exclusivas direto do seu navegador.</p>
       
       <div class="form-group">
-        <label for="input-ollama-host">Endereço do Ollama</label>
-        <input type="url" id="input-ollama-host" placeholder="http://127.0.0.1:11434" value="http://127.0.0.1:11434">
+        <label for="select-provider">Provedor de IA</label>
+        <select id="select-provider">
+          <option value="ollama">Ollama (Local)</option>
+          <option value="gemini">Gemini (Cloud API)</option>
+          <option value="openai">OpenAI (Cloud API)</option>
+        </select>
       </div>
 
-      <div class="form-group">
-        <label for="input-ollama-model">Modelo do Ollama</label>
-        <input type="text" id="input-ollama-model" placeholder="qwen2.5:3b" value="qwen2.5:3b">
-      </div>
-
-      <div class="status-list">
-        <div class="status-item">
-          <span>Ollama Respondendo:</span>
-          <span id="setup-status-running" class="badge danger">Não</span>
+      <!-- Configuração Ollama -->
+      <div id="config-ollama" class="provider-config">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-ollama-host">Endereço do Ollama</label>
+          <input type="url" id="input-ollama-host" placeholder="http://127.0.0.1:11434" value="http://127.0.0.1:11434">
         </div>
-        <div class="status-item">
-          <span>Modelo de IA Instalado:</span>
-          <span id="setup-status-model" class="badge danger">Não</span>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-ollama-model">Modelo do Ollama</label>
+          <input type="text" id="input-ollama-model" placeholder="qwen2.5:3b" value="qwen2.5:3b">
+        </div>
+        <div class="status-list" style="margin-bottom: 12px;">
+          <div class="status-item">
+            <span>Ollama Respondendo:</span>
+            <span id="setup-status-running" class="badge danger">Não</span>
+          </div>
+          <div class="status-item">
+            <span>Modelo de IA Instalado:</span>
+            <span id="setup-status-model" class="badge danger">Não</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuração Gemini -->
+      <div id="config-gemini" class="provider-config" style="display: none;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-gemini-key">Chave de API do Gemini</label>
+          <input type="password" id="input-gemini-key" placeholder="Insera sua Gemini API Key">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-gemini-model">Modelo do Gemini</label>
+          <input type="text" id="input-gemini-model" placeholder="gemini-2.5-flash" value="gemini-2.5-flash">
+        </div>
+        <div class="status-list" style="margin-bottom: 12px;">
+          <div class="status-item">
+            <span>Chave configurada:</span>
+            <span id="gemini-status-key" class="badge danger">Não</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuração OpenAI -->
+      <div id="config-openai" class="provider-config" style="display: none;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-openai-key">Chave de API da OpenAI</label>
+          <input type="password" id="input-openai-key" placeholder="sk-...">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-openai-model">Modelo da OpenAI</label>
+          <input type="text" id="input-openai-model" placeholder="gpt-4o-mini" value="gpt-4o-mini">
+        </div>
+        <div class="status-list" style="margin-bottom: 12px;">
+          <div class="status-item">
+            <span>Chave configurada:</span>
+            <span id="openai-status-key" class="badge danger">Não</span>
+          </div>
         </div>
       </div>
 
@@ -1008,12 +1056,20 @@
     let isPullingModel = false;
 
     // LocalStorage Configuration
+    let provider = localStorage.getItem('provider') || 'ollama';
+    
     let ollamaHost = localStorage.getItem('ollama_host') || 'http://127.0.0.1:11434';
     let ollamaModel = localStorage.getItem('ollama_model') || 'qwen2.5:3b';
     let ollamaStatus = {
       running: false,
       modelDownloaded: false
     };
+
+    let geminiKey = localStorage.getItem('gemini_key') || '';
+    let geminiModel = localStorage.getItem('gemini_model') || 'gemini-2.5-flash';
+
+    let openaiKey = localStorage.getItem('openai_key') || '';
+    let openaiModel = localStorage.getItem('openai_model') || 'gpt-4o-mini';
 
     // DOM Elements
     const txtQuote = document.getElementById('quote-text');
@@ -1029,16 +1085,36 @@
     const btnCloseSettings = document.getElementById('btn-close-settings');
     const btnReloadStatus = document.getElementById('btn-reload-status');
     const modalSettings = document.getElementById('modal-settings');
+    
+    const selectProvider = document.getElementById('select-provider');
+    
+    const configOllama = document.getElementById('config-ollama');
     const inputHost = document.getElementById('input-ollama-host');
     const inputModel = document.getElementById('input-ollama-model');
     const badgeRunning = document.getElementById('setup-status-running');
     const badgeModel = document.getElementById('setup-status-model');
+
+    const configGemini = document.getElementById('config-gemini');
+    const inputGeminiKey = document.getElementById('input-gemini-key');
+    const inputGeminiModel = document.getElementById('input-gemini-model');
+    const badgeGeminiKey = document.getElementById('gemini-status-key');
+
+    const configOpenai = document.getElementById('config-openai');
+    const inputOpenaiKey = document.getElementById('input-openai-key');
+    const inputOpenaiModel = document.getElementById('input-openai-model');
+    const badgeOpenaiKey = document.getElementById('openai-status-key');
+
     const setupActionsArea = document.getElementById('setup-actions-area');
     const categoryButtons = document.querySelectorAll('.category-button');
 
     // Initialize inputs
+    selectProvider.value = provider;
     inputHost.value = ollamaHost;
     inputModel.value = ollamaModel;
+    inputGeminiKey.value = geminiKey;
+    inputGeminiModel.value = geminiModel;
+    inputOpenaiKey.value = openaiKey;
+    inputOpenaiModel.value = openaiModel;
 
     // Helper: Build prompt
     function buildPrompt(category) {
@@ -1073,74 +1149,152 @@
       lblCopy.textContent = 'Copiar';
     }
 
-    // Connect to Ollama and check status
+    // Toggle configuration fields based on selected provider
+    function updateProviderUi() {
+      provider = selectProvider.value;
+      localStorage.setItem('provider', provider);
+
+      // Hide all configurations
+      configOllama.style.display = 'none';
+      configGemini.style.display = 'none';
+      configOpenai.style.display = 'none';
+
+      // Show selected configuration
+      if (provider === 'ollama') {
+        configOllama.style.display = 'block';
+      } else if (provider === 'gemini') {
+        configGemini.style.display = 'block';
+      } else if (provider === 'openai') {
+        configOpenai.style.display = 'block';
+      }
+    }
+
+    selectProvider.addEventListener('change', () => {
+      updateProviderUi();
+      checkOllama();
+    });
+
+    // Connect to Selected Provider and check status
     async function checkOllama() {
+      provider = selectProvider.value;
+      localStorage.setItem('provider', provider);
+
+      // Save input fields to state and localStorage
       ollamaHost = inputHost.value.trim().replace(/\/$/, '');
       ollamaModel = inputModel.value.trim();
-      
       localStorage.setItem('ollama_host', ollamaHost);
       localStorage.setItem('ollama_model', ollamaModel);
 
-      badgeRunning.className = 'badge danger';
-      badgeRunning.textContent = 'Checando...';
-      badgeModel.className = 'badge danger';
-      badgeModel.textContent = 'Checando...';
+      geminiKey = inputGeminiKey.value.trim();
+      geminiModel = inputGeminiModel.value.trim();
+      localStorage.setItem('gemini_key', geminiKey);
+      localStorage.setItem('gemini_model', geminiModel);
 
-      try {
-        // Fetch Ollama tags
-        const res = await fetch(`${ollamaHost}/api/tags`, { method: 'GET', mode: 'cors' });
-        
-        if (res.ok) {
-          ollamaStatus.running = true;
-          badgeRunning.className = 'badge success';
-          badgeRunning.textContent = 'Sim';
+      openaiKey = inputOpenaiKey.value.trim();
+      openaiModel = inputOpenaiModel.value.trim();
+      localStorage.setItem('openai_key', openaiKey);
+      localStorage.setItem('openai_model', openaiModel);
 
-          const data = await res.json();
-          const hasModel = data.models?.some(m => m.name.includes(ollamaModel) || m.model?.includes(ollamaModel));
+      // Reset dynamic HTML action area
+      setupActionsArea.innerHTML = '';
 
-          if (hasModel) {
-            ollamaStatus.modelDownloaded = true;
-            badgeModel.className = 'badge success';
-            badgeModel.textContent = 'Disponível';
-            
-            txtStatus.textContent = 'IA Local Pronta (Ollama)';
-            dotStatus.className = 'status-dot ready';
-            setupActionsArea.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; font-size: 0.85rem;">Tudo pronto! O oráculo de Valfenda está em harmonia com a IA local.</div>`;
-          } else {
-            ollamaStatus.modelDownloaded = false;
-            badgeModel.className = 'badge danger';
-            badgeModel.textContent = 'Indisponível';
-            
-            txtStatus.textContent = 'IA Indisponível (Sem Modelo)';
-            dotStatus.className = 'status-dot warning';
-            renderDownloadButton();
-          }
-        } else {
-          throw new Error('Retorno inválido');
-        }
-      } catch (err) {
-        console.warn('Erro ao conectar com Ollama local:', err);
-        ollamaStatus.running = false;
-        ollamaStatus.modelDownloaded = false;
-        
+      if (provider === 'ollama') {
         badgeRunning.className = 'badge danger';
-        badgeRunning.textContent = 'Não';
+        badgeRunning.textContent = 'Checando...';
         badgeModel.className = 'badge danger';
-        badgeModel.textContent = 'Não';
-        
-        txtStatus.textContent = 'IA Offline (Modo Manuscritos)';
-        dotStatus.className = 'status-dot warning';
+        badgeModel.textContent = 'Checando...';
 
-        // Render instructions
-        setupActionsArea.innerHTML = `
-          <div class="setup-instruction">
-            <p><strong>CORS bloqueado ou Ollama desligado?</strong></p>
-            <p>1. Certifique-se de que o Ollama está rodando localmente.</p>
-            <p>2. Libere o CORS abrindo o terminal e executando:</p>
-            <code>OLLAMA_ORIGINS="*" ollama serve</code>
-            <p class="help-text">Se estiver no Windows, feche o Ollama da barra de tarefas antes de rodar o comando no CMD/Powershell.</p>
-          </div>
-        `;
+        try {
+          const res = await fetch(`${ollamaHost}/api/tags`, { method: 'GET', mode: 'cors' });
+          if (res.ok) {
+            ollamaStatus.running = true;
+            badgeRunning.className = 'badge success';
+            badgeRunning.textContent = 'Sim';
+
+            const data = await res.json();
+            const hasModel = data.models?.some(m => m.name.includes(ollamaModel) || m.model?.includes(ollamaModel));
+
+            if (hasModel) {
+              ollamaStatus.modelDownloaded = true;
+              badgeModel.className = 'badge success';
+              badgeModel.textContent = 'Disponível';
+              
+              txtStatus.textContent = 'IA Local Pronta (Ollama)';
+              dotStatus.className = 'status-dot ready';
+              setupActionsArea.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; font-size: 0.85rem;">Tudo pronto! O oráculo de Valfenda está em harmonia com a IA local.</div>`;
+            } else {
+              ollamaStatus.modelDownloaded = false;
+              badgeModel.className = 'badge danger';
+              badgeModel.textContent = 'Indisponível';
+              
+              txtStatus.textContent = 'IA Indisponível (Sem Modelo)';
+              dotStatus.className = 'status-dot warning';
+              renderDownloadButton();
+            }
+          } else {
+            throw new Error('Retorno inválido');
+          }
+        } catch (err) {
+          console.warn('Erro ao conectar com Ollama local:', err);
+          ollamaStatus.running = false;
+          ollamaStatus.modelDownloaded = false;
+          
+          badgeRunning.className = 'badge danger';
+          badgeRunning.textContent = 'Não';
+          badgeModel.className = 'badge danger';
+          badgeModel.textContent = 'Não';
+          
+          txtStatus.textContent = 'IA Offline (Modo Manuscritos)';
+          dotStatus.className = 'status-dot warning';
+
+          setupActionsArea.innerHTML = `
+            <div class="setup-instruction">
+              <p><strong>CORS bloqueado ou Ollama desligado?</strong></p>
+              <p>1. Certifique-se de que o Ollama está rodando localmente.</p>
+              <p>2. Libere o CORS abrindo o terminal e executando:</p>
+              <code>OLLAMA_ORIGINS="*" ollama serve</code>
+              <p class="help-text">Se estiver no Windows, feche o Ollama da barra de tarefas antes de rodar o comando no CMD/Powershell.</p>
+            </div>
+          `;
+        }
+      } else if (provider === 'gemini') {
+        if (geminiKey) {
+          badgeGeminiKey.className = 'badge success';
+          badgeGeminiKey.textContent = 'Configurada';
+          txtStatus.textContent = `IA Nuvem Ativa (Gemini)`;
+          dotStatus.className = 'status-dot ready';
+          setupActionsArea.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; font-size: 0.85rem;">Gemini pronto para receber requisições de Valfenda!</div>`;
+        } else {
+          badgeGeminiKey.className = 'badge danger';
+          badgeGeminiKey.textContent = 'Ausente';
+          txtStatus.textContent = 'IA Cloud sem chave (Gemini)';
+          dotStatus.className = 'status-dot warning';
+          setupActionsArea.innerHTML = `
+            <div class="setup-instruction">
+              <p>Insira sua Gemini API Key para gerar reprimendas usando a nuvem da Google.</p>
+              <p class="help-text">Você pode obter uma chave gratuita no <a href="https://aistudio.google.com/" target="_blank" style="color: var(--accent-gold);">Google AI Studio</a>.</p>
+            </div>
+          `;
+        }
+      } else if (provider === 'openai') {
+        if (openaiKey) {
+          badgeOpenaiKey.className = 'badge success';
+          badgeOpenaiKey.textContent = 'Configurada';
+          txtStatus.textContent = `IA Nuvem Ativa (OpenAI)`;
+          dotStatus.className = 'status-dot ready';
+          setupActionsArea.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; font-size: 0.85rem;">OpenAI pronta para receber requisições de Valfenda!</div>`;
+        } else {
+          badgeOpenaiKey.className = 'badge danger';
+          badgeOpenaiKey.textContent = 'Ausente';
+          txtStatus.textContent = 'IA Cloud sem chave (OpenAI)';
+          dotStatus.className = 'status-dot warning';
+          setupActionsArea.innerHTML = `
+            <div class="setup-instruction">
+              <p>Insira sua OpenAI API Key para gerar reprimendas usando a nuvem da OpenAI.</p>
+              <p class="help-text">Obtenha sua chave no painel da <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent-gold);">OpenAI Platform</a>.</p>
+            </div>
+          `;
+        }
       }
     }
 
@@ -1154,7 +1308,6 @@
       document.getElementById('btn-download-model').addEventListener('click', pullModel);
     }
 
-    // Pull model with progress stream
     async function pullModel() {
       if (isPullingModel) return;
       isPullingModel = true;
@@ -1233,62 +1386,163 @@
       }
     }
 
-    // Call Ollama local generation
     async function generateQuote() {
       if (isGenerating) return;
-      
-      // If Ollama is offline or model is not downloaded, use fallback immediately
-      if (!ollamaStatus.running || !ollamaStatus.modelDownloaded) {
-        generateLocalQuote();
-        return;
-      }
 
-      isGenerating = true;
-      btnGenerate.disabled = true;
-      iconGenRefresh.classList.add('spin');
-      lblGenerate.textContent = 'Invocando IA...';
-      txtGenStatus.textContent = 'Consultando o oráculo local de Valfenda...';
+      if (provider === 'ollama') {
+        if (!ollamaStatus.running || !ollamaStatus.modelDownloaded) {
+          generateLocalQuote();
+          return;
+        }
 
-      try {
-        const res = await fetch(`${ollamaHost}/api/generate`, {
-          method: 'POST',
-          mode: 'cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: ollamaModel,
-            prompt: buildPrompt(currentCategory),
-            stream: false,
-            options: {
+        isGenerating = true;
+        btnGenerate.disabled = true;
+        iconGenRefresh.classList.add('spin');
+        lblGenerate.textContent = 'Invocando IA...';
+        txtGenStatus.textContent = 'Consultando o oráculo local de Valfenda...';
+
+        try {
+          const res = await fetch(`${ollamaHost}/api/generate`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: ollamaModel,
+              prompt: buildPrompt(currentCategory),
+              stream: false,
+              options: {
+                temperature: 0.9,
+                top_p: 0.92,
+                num_predict: 220
+              }
+            })
+          });
+
+          if (!res.ok) throw new Error('Ollama respondeu com erro');
+
+          const data = await res.json();
+          const text = String(data.response || '').trim();
+          
+          if (!text) throw new Error('Resposta vazia');
+
+          updateQuoteText(text);
+          txtGenStatus.textContent = `Gerado com modelo local: ${ollamaModel}`;
+
+        } catch (err) {
+          console.warn('Erro ao chamar Ollama, usando manuscrito local:', err);
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Ollama falhou. Usou um pergaminho local.';
+        } finally {
+          isGenerating = false;
+          btnGenerate.disabled = false;
+          iconGenRefresh.classList.remove('spin');
+          lblGenerate.textContent = 'Gerar com IA';
+        }
+      } else if (provider === 'gemini') {
+        if (!geminiKey) {
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Chave do Gemini ausente. Usou pergaminho local.';
+          return;
+        }
+
+        isGenerating = true;
+        btnGenerate.disabled = true;
+        iconGenRefresh.classList.add('spin');
+        lblGenerate.textContent = 'Invocando Gemini...';
+        txtGenStatus.textContent = 'Consultando os céus de Valinor via Gemini...';
+
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: buildPrompt(currentCategory) }] }],
+              generationConfig: {
+                temperature: 0.9,
+                maxOutputTokens: 300
+              }
+            })
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error?.message ?? `Erro na API: ${res.status}`);
+          }
+
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+
+          if (!text) throw new Error('Resposta vazia');
+
+          updateQuoteText(text);
+          txtGenStatus.textContent = `Gerado via Gemini Cloud: ${geminiModel}`;
+
+        } catch (err) {
+          console.warn('Erro ao chamar Gemini, usando manuscrito local:', err);
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Falha no Gemini. Usou um pergaminho local.';
+        } finally {
+          isGenerating = false;
+          btnGenerate.disabled = false;
+          iconGenRefresh.classList.remove('spin');
+          lblGenerate.textContent = 'Gerar com IA';
+        }
+      } else if (provider === 'openai') {
+        if (!openaiKey) {
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Chave da OpenAI ausente. Usou pergaminho local.';
+          return;
+        }
+
+        isGenerating = true;
+        btnGenerate.disabled = true;
+        iconGenRefresh.classList.add('spin');
+        lblGenerate.textContent = 'Invocando OpenAI...';
+        txtGenStatus.textContent = 'Consultando o oráculo da OpenAI...';
+
+        try {
+          const url = `https://api.openai.com/v1/chat/completions`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openaiKey}`
+            },
+            body: JSON.stringify({
+              model: openaiModel,
+              messages: [{ role: 'user', content: buildPrompt(currentCategory) }],
               temperature: 0.9,
-              top_p: 0.92,
-              num_predict: 220
-            }
-          })
-        });
+              max_tokens: 300
+            })
+          });
 
-        if (!res.ok) throw new Error('Ollama respondeu com erro');
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error?.message ?? `Erro na API: ${res.status}`);
+          }
 
-        const data = await res.json();
-        const text = String(data.response || '').trim();
-        
-        if (!text) throw new Error('Resposta vazia');
+          const data = await res.json();
+          const text = data.choices?.[0]?.message?.content?.trim() || '';
 
-        updateQuoteText(text);
-        txtGenStatus.textContent = `Gerado com modelo local: ${ollamaModel}`;
+          if (!text) throw new Error('Resposta vazia');
 
-      } catch (err) {
-        console.warn('Erro ao chamar Ollama, usando manuscrito local:', err);
-        generateLocalQuote();
-        txtGenStatus.textContent = 'Ollama falhou. Usou um pergaminho local.';
-      } finally {
-        isGenerating = false;
-        btnGenerate.disabled = false;
-        iconGenRefresh.classList.remove('spin');
-        lblGenerate.textContent = 'Gerar com IA';
+          updateQuoteText(text);
+          txtGenStatus.textContent = `Gerado via OpenAI Cloud: ${openaiModel}`;
+
+        } catch (err) {
+          console.warn('Erro ao chamar OpenAI, usando manuscrito local:', err);
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Falha na OpenAI. Usou um pergaminho local.';
+        } finally {
+          isGenerating = false;
+          btnGenerate.disabled = false;
+          iconGenRefresh.classList.remove('spin');
+          lblGenerate.textContent = 'Gerar com IA';
+        }
       }
     }
 
-    // Actions implementation
     async function copyToClipboard() {
       if (!generatedText) return;
       try {
@@ -1316,6 +1570,7 @@
 
     btnOpenSettings.addEventListener('click', () => {
       modalSettings.classList.add('open');
+      updateProviderUi();
       checkOllama();
     });
 
