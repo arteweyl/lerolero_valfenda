@@ -49,11 +49,89 @@ A pasta `github-pages/` contém uma versão estática minimalista em HTML puro e
 
 1. Configure o deploy da pasta `github-pages/` nas configurações do GitHub Pages do seu repositório.
 2. O app funciona 100% offline usando uma base de dados local de 200 frases élvicas.
-3. Para conectar o navegador ao seu Ollama local, inicialize o serviço do Ollama permitindo conexões de CORS:
+3. Como o GitHub Pages roda sob **HTTPS** e o Ollama local roda sob **HTTP**, o navegador bloqueará as chamadas por padrão (Insecure/Mixed Content) além do bloqueio de CORS. Escolha uma das opções abaixo para conectar:
+
+<br>
+
+<details>
+<summary><b>👉 Opção 1: Permitir Conteúdo Não Seguro no Navegador (Mais Rápida)</b></summary>
+
+Você pode abrir uma exceção de segurança de conteúdo misto apenas para a página do seu projeto no GitHub Pages:
+
+1. Acesse o seu site no **GitHub Pages**.
+2. Clique no **ícone de cadeado ou configurações** (duas barras de controles deslizantes) no lado esquerdo da barra de endereço (onde fica a URL do site).
+3. Selecione **"Configurações do site"** (ou *Site settings*).
+4. Localize a opção **"Conteúdo não seguro"** (ou *Insecure content*) e mude de *Bloquear* para **"Permitir"** (ou *Allow*).
+5. Retorne à página do GitHub Pages e **recarregue (F5)**.
+
+> ⚠️ **Atenção:** Você ainda precisará liberar o CORS no Ollama (veja a aba "Como liberar o CORS no Ollama" abaixo).
+</details>
+
+<details>
+<summary><b>👉 Opção 2: Criar um túnel seguro HTTPS para o Ollama (Sem mexer no navegador)</b></summary>
+
+Se você preferir não alterar as políticas do seu navegador, pode expor o seu Ollama local usando um túnel HTTPS criptografado (ex: `localtunnel` ou `ngrok`):
+
+1. Instale o localtunnel globalmente via npm:
    ```bash
-   OLLAMA_ORIGINS="*" ollama serve
+   npm install -g localtunnel
    ```
-   E insira o endereço `http://127.0.0.1:11434` no menu de configurações (Santuário de IA) da página.
+2. Inicie o túnel direcionado para a porta do seu Ollama local:
+   ```bash
+   lt --port 11434
+   ```
+3. O comando irá gerar um link seguro parecido com `https://xxxxx.localthunnel.me`. Copie este link.
+4. Abra o site no GitHub Pages, vá em **Configurações / Configurar IA** e cole essa URL HTTPS no campo de endereço do Ollama.
+</details>
+
+<details>
+<summary><b>👉 Opção 3: Executar a Aplicação Localmente por HTTP</b></summary>
+
+Se quiser evitar túneis e exceções de segurança, basta rodar o projeto localmente. Como a página será servida em `http://localhost:5173`, o navegador permitirá a comunicação direta com o Ollama local sem restrições de HTTPS:
+
+1. Clone o repositório e instale as dependências:
+   ```bash
+   git clone https://github.com/valfenda/lero-lero-valfenda.git
+   cd lero-lero-valfenda
+   npm install
+   ```
+2. Inicie o servidor local:
+   ```bash
+   npm run dev
+   ```
+3. Acesse `http://localhost:5173` no navegador.
+</details>
+
+<details>
+<summary><b>🔒 Como liberar o CORS no seu Ollama (Obrigatório)</b></summary>
+
+Para o navegador permitir conexões vindas do domínio do GitHub Pages, o Ollama local precisa subir com a permissão de CORS ativada (`OLLAMA_ORIGINS="*"`).
+
+* **No WSL2 (Serviço Systemd):**
+  1. Abra o arquivo de substituição do serviço:
+     ```bash
+     sudo systemctl edit ollama.service
+     ```
+  2. Adicione as seguintes linhas no arquivo:
+     ```ini
+     [Service]
+     Environment="OLLAMA_ORIGINS=*"
+     ```
+  3. Salve, feche o editor e atualize o serviço:
+     ```bash
+     sudo systemctl daemon-reload && sudo systemctl restart ollama
+     ```
+
+* **No Windows (Executando diretamente pelo CMD ou PowerShell):**
+  1. Feche o Ollama clicando com o botão direito no ícone dele na barra de tarefas (perto do relógio) e escolhendo **Quit**.
+  2. Abra um terminal e execute:
+     ```powershell
+     set OLLAMA_ORIGINS=*
+     ollama serve
+     ```
+</details>
+
+<br>
 
 ---
 
