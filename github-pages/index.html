@@ -622,9 +622,28 @@
       background: #92400e;
     }
 
-    .btn-close:disabled, .btn-retry:disabled {
+    .btn-close:disabled, .btn-retry:disabled, .btn-clear:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    .btn-clear {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.85rem;
+      transition: var(--transition-fast);
+      font-family: inherit;
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      color: #ef4444;
+    }
+
+    .btn-clear:hover {
+      background: rgba(220, 38, 38, 0.2);
+      border-color: rgba(220, 38, 38, 0.5);
     }
 
     /* Keyframes */
@@ -844,7 +863,12 @@
         <!-- Will be filled dynamically by JS -->
       </div>
 
-      <div class="modal-footer-buttons">
+      <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 16px; padding: 10px; border-top: 1px solid var(--border-color); line-height: 1.4; text-align: left;">
+        🛡️ <strong>Nota de Segurança:</strong> Suas chaves de API são armazenadas exclusivamente no seu próprio navegador (no `localStorage`) e transmitidas por conexões seguras HTTPS diretamente aos servidores oficiais da Google, OpenAI e Anthropic. Elas nunca são enviadas a servidores de terceiros ou publicadas no repositório.
+      </div>
+
+      <div class="modal-footer-buttons" style="display: flex; gap: 8px; margin-top: 12px;">
+        <button type="button" class="btn-clear" id="btn-clear-keys">Limpar Chaves</button>
         <button type="button" class="btn-close" id="btn-close-settings">Fechar</button>
         <button type="button" class="btn-retry" id="btn-reload-status">Recarregar Status</button>
       </div>
@@ -1106,6 +1130,7 @@
     const btnOpenSettings = document.getElementById('btn-open-settings');
     const btnCloseSettings = document.getElementById('btn-close-settings');
     const btnReloadStatus = document.getElementById('btn-reload-status');
+    const btnClearKeys = document.getElementById('btn-clear-keys');
     const modalSettings = document.getElementById('modal-settings');
     
     const selectProvider = document.getElementById('select-provider');
@@ -1690,6 +1715,21 @@
     });
 
     btnReloadStatus.addEventListener('click', checkOllama);
+
+    btnClearKeys.addEventListener('click', () => {
+      if (confirm('Tem certeza que deseja apagar todas as chaves de API e configurações locais?')) {
+        localStorage.removeItem('gemini_key');
+        localStorage.removeItem('openai_key');
+        localStorage.removeItem('claude_key');
+        
+        inputGeminiKey.value = '';
+        inputOpenaiKey.value = '';
+        inputClaudeKey.value = '';
+        
+        checkOllama();
+        alert('Todas as chaves foram apagadas com sucesso do armazenamento local.');
+      }
+    });
 
     // Initial load
     window.addEventListener('DOMContentLoaded', () => {
