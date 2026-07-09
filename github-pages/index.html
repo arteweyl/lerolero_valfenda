@@ -760,6 +760,7 @@
           <option value="ollama">Ollama (Local)</option>
           <option value="gemini">Gemini (Cloud API)</option>
           <option value="openai">OpenAI (Cloud API)</option>
+          <option value="claude">Claude (Cloud API)</option>
         </select>
       </div>
 
@@ -817,6 +818,24 @@
           <div class="status-item">
             <span>Chave configurada:</span>
             <span id="openai-status-key" class="badge danger">Não</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuração Claude -->
+      <div id="config-claude" class="provider-config" style="display: none;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-claude-key">Chave de API do Claude</label>
+          <input type="password" id="input-claude-key" placeholder="sk-ant-...">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="input-claude-model">Modelo do Claude</label>
+          <input type="text" id="input-claude-model" placeholder="claude-3-5-haiku-20241022" value="claude-3-5-haiku-20241022">
+        </div>
+        <div class="status-list" style="margin-bottom: 12px;">
+          <div class="status-item">
+            <span>Chave configurada:</span>
+            <span id="claude-status-key" class="badge danger">Não</span>
           </div>
         </div>
       </div>
@@ -1071,6 +1090,9 @@
     let openaiKey = localStorage.getItem('openai_key') || '';
     let openaiModel = localStorage.getItem('openai_model') || 'gpt-4o-mini';
 
+    let claudeKey = localStorage.getItem('claude_key') || '';
+    let claudeModel = localStorage.getItem('claude_model') || 'claude-3-5-haiku-20241022';
+
     // DOM Elements
     const txtQuote = document.getElementById('quote-text');
     const txtStatus = document.getElementById('status-text');
@@ -1104,6 +1126,11 @@
     const inputOpenaiModel = document.getElementById('input-openai-model');
     const badgeOpenaiKey = document.getElementById('openai-status-key');
 
+    const configClaude = document.getElementById('config-claude');
+    const inputClaudeKey = document.getElementById('input-claude-key');
+    const inputClaudeModel = document.getElementById('input-claude-model');
+    const badgeClaudeKey = document.getElementById('claude-status-key');
+
     const setupActionsArea = document.getElementById('setup-actions-area');
     const categoryButtons = document.querySelectorAll('.category-button');
 
@@ -1115,6 +1142,8 @@
     inputGeminiModel.value = geminiModel;
     inputOpenaiKey.value = openaiKey;
     inputOpenaiModel.value = openaiModel;
+    inputClaudeKey.value = claudeKey;
+    inputClaudeModel.value = claudeModel;
 
     // Helper: Build prompt
     function buildPrompt(category) {
@@ -1158,6 +1187,7 @@
       configOllama.style.display = 'none';
       configGemini.style.display = 'none';
       configOpenai.style.display = 'none';
+      configClaude.style.display = 'none';
 
       // Show selected configuration
       if (provider === 'ollama') {
@@ -1166,6 +1196,8 @@
         configGemini.style.display = 'block';
       } else if (provider === 'openai') {
         configOpenai.style.display = 'block';
+      } else if (provider === 'claude') {
+        configClaude.style.display = 'block';
       }
     }
 
@@ -1194,6 +1226,11 @@
       openaiModel = inputOpenaiModel.value.trim();
       localStorage.setItem('openai_key', openaiKey);
       localStorage.setItem('openai_model', openaiModel);
+
+      claudeKey = inputClaudeKey.value.trim();
+      claudeModel = inputClaudeModel.value.trim();
+      localStorage.setItem('claude_key', claudeKey);
+      localStorage.setItem('claude_model', claudeModel);
 
       // Reset dynamic HTML action area
       setupActionsArea.innerHTML = '';
@@ -1292,6 +1329,25 @@
             <div class="setup-instruction">
               <p>Insira sua OpenAI API Key para gerar reprimendas usando a nuvem da OpenAI.</p>
               <p class="help-text">Obtenha sua chave no painel da <a href="https://platform.openai.com/api-keys" target="_blank" style="color: var(--accent-gold);">OpenAI Platform</a>.</p>
+            </div>
+          `;
+        }
+      } else if (provider === 'claude') {
+        if (claudeKey) {
+          badgeClaudeKey.className = 'badge success';
+          badgeClaudeKey.textContent = 'Configurada';
+          txtStatus.textContent = `IA Nuvem Ativa (Claude)`;
+          dotStatus.className = 'status-dot ready';
+          setupActionsArea.innerHTML = `<div style="text-align: center; color: #10b981; font-weight: bold; font-size: 0.85rem;">Claude pronto para receber requisições de Valfenda!</div>`;
+        } else {
+          badgeClaudeKey.className = 'badge danger';
+          badgeClaudeKey.textContent = 'Ausente';
+          txtStatus.textContent = 'IA Cloud sem chave (Claude)';
+          dotStatus.className = 'status-dot warning';
+          setupActionsArea.innerHTML = `
+            <div class="setup-instruction">
+              <p>Insira sua Claude API Key para gerar reprimendas usando a nuvem da Anthropic.</p>
+              <p class="help-text">Você pode obter uma chave na <a href="https://console.anthropic.com/" target="_blank" style="color: var(--accent-gold);">Anthropic Console</a>.</p>
             </div>
           `;
         }
@@ -1534,6 +1590,59 @@
           console.warn('Erro ao chamar OpenAI, usando manuscrito local:', err);
           generateLocalQuote();
           txtGenStatus.textContent = 'Falha na OpenAI. Usou um pergaminho local.';
+        } finally {
+          isGenerating = false;
+          btnGenerate.disabled = false;
+          iconGenRefresh.classList.remove('spin');
+          lblGenerate.textContent = 'Gerar com IA';
+        }
+      } else if (provider === 'claude') {
+        if (!claudeKey) {
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Chave do Claude ausente. Usou pergaminho local.';
+          return;
+        }
+
+        isGenerating = true;
+        btnGenerate.disabled = true;
+        iconGenRefresh.classList.add('spin');
+        lblGenerate.textContent = 'Invocando Claude...';
+        txtGenStatus.textContent = 'Consultando a mente de Claude via Anthropic...';
+
+        try {
+          const url = `https://api.anthropic.com/v1/messages`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': claudeKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+              model: claudeModel,
+              messages: [{ role: 'user', content: buildPrompt(currentCategory) }],
+              max_tokens: 300
+            })
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error?.message ?? `Erro na API: ${res.status}`);
+          }
+
+          const data = await res.json();
+          const text = data.content?.[0]?.text?.trim() || '';
+
+          if (!text) throw new Error('Resposta vazia');
+
+          updateQuoteText(text);
+          txtGenStatus.textContent = `Gerado via Claude Cloud: ${claudeModel}`;
+
+        } catch (err) {
+          console.warn('Erro ao chamar Claude, usando manuscrito local:', err);
+          generateLocalQuote();
+          txtGenStatus.textContent = 'Falha no Claude. Usou um pergaminho local.';
         } finally {
           isGenerating = false;
           btnGenerate.disabled = false;
