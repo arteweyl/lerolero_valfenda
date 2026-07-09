@@ -754,7 +754,7 @@
       
       <div class="form-group">
         <label for="input-ollama-host">Endereço do Ollama</label>
-        <input type="url" id="input-ollama-host" placeholder="http://localhost:11434" value="http://localhost:11434">
+        <input type="url" id="input-ollama-host" placeholder="http://127.0.0.1:11434" value="http://127.0.0.1:11434">
       </div>
 
       <div class="form-group">
@@ -1008,7 +1008,7 @@
     let isPullingModel = false;
 
     // LocalStorage Configuration
-    let ollamaHost = localStorage.getItem('ollama_host') || 'http://localhost:11434';
+    let ollamaHost = localStorage.getItem('ollama_host') || 'http://127.0.0.1:11434';
     let ollamaModel = localStorage.getItem('ollama_model') || 'qwen2.5:3b';
     let ollamaStatus = {
       running: false,
